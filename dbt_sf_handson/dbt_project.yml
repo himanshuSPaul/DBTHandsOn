@@ -17,6 +17,5 @@ clean-targets:
 
 
 models:
-  dbt_dbt_handson:
-    example:
-      +materialized: view
+  dbt_sf_handson:
+    +materialized: view
