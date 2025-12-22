@@ -1,0 +1,7 @@
+sources:
+  - name: snapshot_demo
+    database: SNAPSHOT_DEMO
+    schema: PUBLIC
+    tables:
+      - name: ord_status
+        identifier: order_status
