@@ -1,0 +1,11 @@
+snapshots:
+  - name: product_version_snapshot_check_strategy_yaml
+    description: "Snapshot of product versions over time"
+    relation: source('snapshot_demo', 'prd_version')
+    config:
+      target_database: SNAPSHOT_DEMO
+      target_schema: snapshots_tables
+      alias : product_version_snapshot_check_strategy_yaml
+      unique_key: PRD_ID
+      strategy: check
+      check_cols: ['prd_version','prd_price']
