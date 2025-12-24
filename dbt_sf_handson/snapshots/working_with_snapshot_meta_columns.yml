@@ -1,0 +1,17 @@
+snapshots:
+  - name: snapshot_metacolumns_demo_yml
+    description: "Snapshot of product versions over time"
+    relation: source('snapshot_demo', 'emp_dept')
+    config:
+      target_database: SNAPSHOT_DEMO
+      target_schema: snapshots_tables
+      alias : snapshot_metacolumns_demo_yml
+      unique_key: EMP_ID
+      strategy: timestamp
+      updated_at: LAST_UPDATE_ON
+      snapshot_meta_column_names:
+        dbt_valid_from: row_valid_from
+        dbt_valid_to: row_valid_till
+        dbt_scd_id: row_scd_id
+        dbt_updated_at: row_last_updated_at
+        dbt_is_deleted: is_row_deleted
