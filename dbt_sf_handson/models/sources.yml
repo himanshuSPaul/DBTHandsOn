@@ -5,3 +5,9 @@ sources:
     tables:
       - name: ord_status
         identifier: order_status
+        
+      - name: prd_version
+        identifier: product_version
+      
+      - name: emp_dept
+        identifier: EMPLOYEE_DEPT
