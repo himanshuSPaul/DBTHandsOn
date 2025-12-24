@@ -11,3 +11,7 @@ sources:
       
       - name: emp_dept
         identifier: EMPLOYEE_DEPT
+
+      - name: emp_sal
+        identifier: EMPLOYEE_SALARY
+      

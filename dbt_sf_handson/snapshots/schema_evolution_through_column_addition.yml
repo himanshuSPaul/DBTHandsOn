@@ -1,0 +1,13 @@
+snapshots:
+  - name: schema_evolution_demo_through_column_addition
+    description: "Snapshot demonstrating schema evolution by adding columns"
+    relation: source('snapshot_demo', 'emp_sal')
+    config:
+      target_database: SNAPSHOT_DEMO
+      target_schema: snapshots_tables
+      alias : schema_evolution_demo_through_column_addition
+      unique_key: EMP_ID
+      strategy: timestamp
+      updated_at: LAST_UPDATE_ON
+
+      
