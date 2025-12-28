@@ -18,12 +18,12 @@ Usage:
     --replace-table
 
 
-Example commands:
+Example commands for initial full load ingestion:
 cd .\Adhoc\ImportJaffelShopDataToSnowflake\
 
 python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_CUSTOMERS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
 
-python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ITEMS/" -- database JAFFELSHOP_ECOM --schema RAW --replace-table
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ITEMS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
 
 python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ORDERS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
 

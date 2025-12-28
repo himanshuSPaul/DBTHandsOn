@@ -564,9 +564,31 @@ python import_snowflake_table.py \
 
 ## Common Workflows
 
-### Workflow 1: Initial Full Data Load
+### Workflow 1: Initial Full Data Load - Individual Commands
 
-Load all historical data from `HistoryData` folder:
+Load all historical data from `HistoryData` folder using individual commands:
+
+```bash
+cd .\Adhoc\ImportJaffelShopDataToSnowflake\
+
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_CUSTOMERS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ITEMS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ORDERS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_PRODUCTS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_STORES/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_SUPPLIES/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_TWEETS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+```
+
+### Workflow 2: Initial Full Data Load - Automated Script
+
+Load all raw tables using a loop (alternative approach):
 
 ```bash
 # Load all raw tables
@@ -582,7 +604,7 @@ do
 done
 ```
 
-### Workflow 2: Daily Incremental Load
+### Workflow 3: Daily Incremental Load
 
 Load latest day of ORDERS data:
 
@@ -600,7 +622,27 @@ python incremental_loader.py \
   --validate
 ```
 
-### Workflow 3: Weekly Load with Validation
+### Workflow 3B: Multi-Day Incremental Load Examples
+
+#### 2 Days Incremental Data Load for ORDERS
+
+```bash
+python incremental_loader.py --database JAFFELSHOP_ECOM --schema INCR_DATA_LOAD --type ORDERS --table ./IncrementalData/RAW_DAILY_ORDERS --start-date 20220113 --end-date 20220114 --validate
+```
+
+#### 3 Days Incremental Data Load for ORDERS (Without Validation)
+
+```bash
+python incremental_loader.py --database JAFFELSHOP_ECOM --schema INCR_DATA_LOAD --type ORDERS --table ./IncrementalData/RAW_DAILY_ORDERS --start-date 20220113 --end-date 20220115
+```
+
+#### 7 Days Incremental Data Load for ITEMS
+
+```bash
+python incremental_loader.py --database JAFFELSHOP_ECOM --schema INCR_DATA_LOAD --type ITEMS --table ./IncrementalData/RAW_DAILY_ITEMS --start-date 20220101 --end-date 20220107 --validate
+```
+
+### Workflow 4: Weekly Load with Validation
 
 ```bash
 python incremental_loader.py \
@@ -613,7 +655,7 @@ python incremental_loader.py \
   --validate
 ```
 
-### Workflow 4: Check Load History
+### Workflow 5: Check Load History
 
 ```bash
 python -c "
