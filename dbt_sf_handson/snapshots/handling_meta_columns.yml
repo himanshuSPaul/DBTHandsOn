@@ -1,0 +1,17 @@
+snapshots:
+  - name: handling_meta_columns
+    description: "Snapshot demonstrating meta columns handling"
+    relation: source('snapshot_demo', 'emp_sal')
+    config:
+      target_database: SNAPSHOT_DEMO
+      target_schema: snapshots_tables
+      alias : handling_meta_columns
+      unique_key: EMP_ID
+      strategy: timestamp
+      updated_at: LAST_UPDATE_ON
+      snapshot_meta_column_names:
+        dbt_valid_from: row_valid_from
+        dbt_valid_to: row_valid_to
+        dbt_scd_id: row_uniq_scd_id
+        dbt_updated_at: row_last_updated_at
+        dbt_is_deleted: is_deleted
