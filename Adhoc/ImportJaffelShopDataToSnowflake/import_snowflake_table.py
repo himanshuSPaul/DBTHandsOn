@@ -8,6 +8,8 @@ The exported folder is expected to contain:
   - *.ddl.sql - Table DDL definition
   - *.csv.gzip - Compressed CSV data file
 
+Includes automatic audit logging to JAFFELSHOP_ECOM.OPS.INGESTION_AUDIT_LOG table.
+
 Usage:
   python import_snowflake_table.py \
     --config ./config.ini \
@@ -21,7 +23,7 @@ cd .\Adhoc\ImportJaffelShopDataToSnowflake\
 
 python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_CUSTOMERS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
 
-python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ITEMS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
+python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ITEMS/" -- database JAFFELSHOP_ECOM --schema RAW --replace-table
 
 python import_snowflake_table.py --config ./config.ini --folder "./HistoryData/RAW_ORDERS/" --database JAFFELSHOP_ECOM --schema RAW --replace-table
 
@@ -50,6 +52,8 @@ import logging
 import os
 import sys
 import time
+import uuid
+from datetime import datetime
 from pathlib import Path
 from io import StringIO
 
@@ -97,6 +101,97 @@ def read_config(path: str) -> dict:
         if val:
             cfg[k] = val
     return cfg
+
+
+def create_audit_table(conn):
+    """Create OPS schema and audit log table if they don't exist."""
+    try:
+        cur = conn.cursor()
+        
+        # Create OPS schema
+        cur.execute("CREATE SCHEMA IF NOT EXISTS JAFFELSHOP_ECOM.OPS")
+        logging.info("OPS schema created or already exists")
+        
+        # Create audit table
+        audit_ddl = """
+        CREATE TABLE IF NOT EXISTS JAFFELSHOP_ECOM.OPS.INGESTION_AUDIT_LOG (
+            AUDIT_ID NUMBER AUTOINCREMENT,
+            LOAD_ID VARCHAR NOT NULL,
+            TARGET_DATABASE VARCHAR NOT NULL,
+            TARGET_SCHEMA VARCHAR NOT NULL,
+            TARGET_TABLE VARCHAR NOT NULL,
+            LOAD_TYPE VARCHAR NOT NULL,
+            SOURCE_DATA_DIR VARCHAR,
+            TOTAL_FILES_LOADED NUMBER,
+            TOTAL_ROWS_LOADED NUMBER,
+            STARTING_ROW_COUNT NUMBER,
+            ENDING_ROW_COUNT NUMBER,
+            ROWS_INSERTED NUMBER,
+            LOAD_START_DATE VARCHAR,
+            LOAD_END_DATE VARCHAR,
+            DATE_RANGE_START VARCHAR,
+            DATE_RANGE_END VARCHAR,
+            SUCCESSFUL_LOADS NUMBER,
+            FAILED_LOADS NUMBER,
+            DURATION_MINUTES NUMBER,
+            LOAD_STATUS VARCHAR,
+            ERROR_MESSAGE VARCHAR,
+            CREATED_AT TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+        )
+        COMMENT = 'Audit log for data ingestion loads'
+        """
+        cur.execute(audit_ddl)
+        logging.info("Audit table created or already exists")
+        cur.close()
+    except Exception as e:
+        logging.warning(f"Could not create audit table: {e}")
+
+
+def log_audit_entry(conn, audit_data):
+    """Insert audit log entry into Snowflake OPS schema."""
+    try:
+        cur = conn.cursor()
+        
+        # Escape single quotes in string fields
+        def escape_sql(val):
+            if val is None:
+                return 'NULL'
+            return str(val).replace("'", "''")
+        
+        audit_insert = f"""
+        INSERT INTO JAFFELSHOP_ECOM.OPS.INGESTION_AUDIT_LOG 
+        (LOAD_ID, TARGET_DATABASE, TARGET_SCHEMA, TARGET_TABLE, LOAD_TYPE, SOURCE_DATA_DIR,
+         TOTAL_FILES_LOADED, TOTAL_ROWS_LOADED, STARTING_ROW_COUNT, ENDING_ROW_COUNT, 
+         ROWS_INSERTED, LOAD_START_DATE, LOAD_END_DATE, DATE_RANGE_START, DATE_RANGE_END,
+         SUCCESSFUL_LOADS, FAILED_LOADS, DURATION_MINUTES, LOAD_STATUS, ERROR_MESSAGE)
+        VALUES (
+            '{escape_sql(audit_data['load_id'])}',
+            '{escape_sql(audit_data['database'])}',
+            '{escape_sql(audit_data['schema'])}',
+            '{escape_sql(audit_data['target_table'])}',
+            '{escape_sql(audit_data['load_type'])}',
+            '{escape_sql(audit_data['source_dir'])}',
+            {audit_data['total_files']},
+            {audit_data['total_rows']},
+            {audit_data['start_count']},
+            {audit_data['end_count']},
+            {audit_data['rows_inserted']},
+            '{escape_sql(audit_data['load_start'])}',
+            '{escape_sql(audit_data['load_end'])}',
+            '{escape_sql(audit_data['date_range_start'])}',
+            '{escape_sql(audit_data['date_range_end'])}',
+            {audit_data['successful']},
+            {audit_data['failed']},
+            {audit_data['duration_minutes']},
+            '{escape_sql(audit_data['status'])}',
+            {f"'{escape_sql(audit_data['error_message'])}'" if audit_data['error_message'] else 'NULL'}
+        )
+        """
+        cur.execute(audit_insert)
+        logging.info(f"Audit log entry inserted with LOAD_ID: {audit_data['load_id']}")
+        cur.close()
+    except Exception as e:
+        logging.error(f"Failed to insert audit log: {e}")
 
 
 def get_conn_from_config(cfg: dict):
@@ -658,9 +753,37 @@ def _load_data_sql_insert(conn, df: pd.DataFrame, fully_qualified_table_name: st
 
 def main():
     start_time = time.time()
+    start_datetime = datetime.now()
+    load_id = f"IMPORT_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
     logging.info("Script execution started at %s", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
+    logging.info("Load ID: %s", load_id)
     
     args = parse_args()
+    
+    # Initialize audit data
+    audit_data = {
+        'load_id': load_id,
+        'database': args.database,
+        'schema': args.schema,
+        'target_table': f"RAW_{Path(args.folder).name.upper()}",
+        'source_dir': str(Path(args.folder).resolve()).replace('\\', '/'),
+        'load_type': 'FULL_LOAD' if args.replace_table else 'INCREMENTAL',
+        'total_files': 1,
+        'total_rows': 0,
+        'start_count': 0,
+        'end_count': 0,
+        'rows_inserted': 0,
+        'load_start': start_datetime.isoformat(),
+        'load_end': None,
+        'date_range_start': Path(args.folder).name,
+        'date_range_end': Path(args.folder).name,
+        'successful': 0,
+        'failed': 0,
+        'duration_minutes': 0,
+        'status': 'IN_PROGRESS',
+        'error_message': None
+    }
     
     # Read config
     cfg = read_config(args.config)
@@ -668,9 +791,16 @@ def main():
         conn = get_conn_from_config(cfg)
     except Exception:
         logging.exception("Failed to connect to Snowflake using config %s", args.config)
+        audit_data['status'] = 'FAILED'
+        audit_data['error_message'] = 'Failed to connect to Snowflake'
+        audit_data['load_end'] = datetime.now().isoformat()
+        audit_data['duration_minutes'] = (time.time() - start_time) / 60
         raise
     
     try:
+        # Create audit table
+        create_audit_table(conn)
+        
         # Find DDL and data files in folder
         ddl_file, data_file = find_files_in_folder(args.folder)
         
@@ -685,8 +815,26 @@ def main():
         ddl = read_ddl(ddl_file)
         df = read_csv_gzip(data_file)
         
+        # Update audit data
+        audit_data['total_rows'] = len(df)
+        
         # Create database and schema if they don't exist
         create_database_and_schema(conn, args.database, args.schema)
+        
+        # Get starting row count
+        try:
+            cur = conn.cursor()
+            table_name = f"RAW_{Path(args.folder).name.upper()}"
+            try:
+                cur.execute(f"SELECT COUNT(*) FROM {args.database}.{args.schema}.{table_name}")
+                start_count = cur.fetchone()[0]
+            except:
+                start_count = 0
+            cur.close()
+        except:
+            start_count = 0
+        
+        audit_data['start_count'] = start_count
         
         # Create table in target database and schema
         fully_qualified_table_name = create_table_from_ddl(conn, ddl, args.database, args.schema, args.replace_table)
@@ -694,12 +842,38 @@ def main():
         # Load data into table
         load_data_into_table(conn, df, args.database, args.schema, fully_qualified_table_name, input_dir_size, input_folder_path, input_data_file_path)
         
+        # Get ending row count
+        try:
+            cur = conn.cursor()
+            cur.execute(f"SELECT COUNT(*) FROM {fully_qualified_table_name}")
+            end_count = cur.fetchone()[0]
+            cur.close()
+        except:
+            end_count = 0
+        
+        audit_data['end_count'] = end_count
+        audit_data['rows_inserted'] = end_count - start_count
+        audit_data['successful'] = 1
+        audit_data['failed'] = 0
+        audit_data['status'] = 'SUCCESS'
+        
         logging.info("Import completed successfully!")
         
-    except Exception:
+    except Exception as e:
         logging.exception("Failed to import table")
+        audit_data['status'] = 'FAILED'
+        audit_data['error_message'] = str(e)[:500]
+        audit_data['failed'] = 1
         raise
     finally:
+        try:
+            # Log audit entry
+            audit_data['load_end'] = datetime.now().isoformat()
+            audit_data['duration_minutes'] = (time.time() - start_time) / 60
+            log_audit_entry(conn, audit_data)
+        except Exception as e:
+            logging.warning(f"Failed to log audit entry: {e}")
+        
         try:
             conn.close()
         except Exception:
