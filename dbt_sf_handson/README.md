@@ -2,17 +2,46 @@ Welcome to your new dbt project!
 
 ### Using the starter project
 
-Try running the following commands:
-- dbt run
-- dbt test
 
 
+``` 
+Root Path            : D:\Learning\VSCode\DBT\DBTHandsOn
+Virtual Env. Path    : D:\Learning\VSCode\DBT\DBTHandsOn\dbt-sf-venv
+DBT Project Path     : D:\Learning\VSCode\DBT\DBTHandsOn\dbt_sf_handson
+Sample Data Dir Path : D:\Learning\VSCode\DBT\DBTHandsOn\ImportJaffelShopDataToSnowflake
+```
+
+### Steps to Start Using This Project
+```
+-- Step :1  
+-- Activate Virtual Envirnment
+D:\Learning\VSCode\DBT\DBTHandsOn\dbt-sf-venv\Scripts\Activate.ps1;
+
+--Step :2
+-- Go To DBT Project Folder
+cd D:\Learning\VSCode\DBT\DBTHandsOn\dbt_sf_handson
+
+You should see below folder structure for 'tree /f' command 
+
+│   .gitignore
+│   dbt_project.yml
+│   README.md
+├───analyses
+│       .gitkeep
+├───macros
+│       .gitkeep
+├───models
+│       .gitkeep
+├───seeds
+│       .gitkeep
+├───snapshots
+│       .gitkeep
+├───target
+│       .gitkeep
+└───tests
+        .gitkeep
+```
 ### Resources:
-- Learn more about dbt [in the docs](https://docs.getdbt.com/docs/introduction)
-- Check out [Discourse](https://discourse.getdbt.com/) for commonly asked questions and answers
-- Join the [chat](https://community.getdbt.com/) on Slack for live discussions and support
-- Find [dbt events](https://events.getdbt.com) near you
-- Check out [the blog](https://blog.getdbt.com/) for the latest news on dbt's development and best practices
 
 
 ## Snapshot 
@@ -96,3 +125,6 @@ threads (1 or more) [1]: 4
 
 09:36:02  All checks passed!
 ```
+
+
+
