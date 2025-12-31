@@ -1,0 +1,333 @@
+version: 2
+
+exposures:
+  # TIER 1: EXECUTIVE DASHBOARD
+  - name: executive_dashboard
+    type: dashboard
+    description: |
+      Executive-level dashboard for C-Suite, Board, and Department Heads.
+      Provides strategic KPIs, trends, and business insights with hourly refresh.
+      
+      Includes:
+      - 4 KPI cards (Revenue, Customers, Orders, Growth %)
+      - 12-month revenue trend with dual axis
+      - Pareto analysis (top products by revenue)
+      - Customer segmentation breakdown
+      - Top 10 products ranking
+      - Order value distribution
+      - Customer lifecycle funnel
+      - Store performance comparison
+      - Cohort retention heatmap
+      - At-risk customers identification
+      - 3-month CLV forecast
+      
+      Metrics: 20+ KPIs
+      Visualizations: 12+ charts
+      Refresh: Hourly
+      Drill-downs: 8+ navigation paths
+    
+    owner:
+      name: Executive Sponsor
+      email: executive@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('mart_orders')
+      - ref('mart_products')
+    
+    url: "{{ env_var('BI_TOOL_URL', '') }}/dashboards/executive-summary"
+
+  # TIER 2A: SALES PERFORMANCE DASHBOARD
+  - name: sales_performance_dashboard
+    type: dashboard
+    description: |
+      Operational dashboard for Sales team and Operations.
+      Tracks daily sales metrics, patterns, and anomalies with 30-minute refresh.
+      
+      Includes:
+      - 3 KPI cards (Revenue MTD, Orders MTD, Avg Order Value)
+      - Daily revenue trend with 7-day moving average
+      - Peak hours analysis (by hour of day)
+      - Day-of-week patterns and comparison
+      - Order value distribution histogram
+      - Store performance matrix
+      - Top sales days ranking
+      - Revenue forecast next 7 days
+      
+      Metrics: 12+ KPIs
+      Visualizations: 8+ charts
+      Refresh: Every 30 minutes
+      Alerts: 5+ anomaly thresholds
+    
+    owner:
+      name: Sales Operations Manager
+      email: sales-ops@company.com
+    
+    depends_on:
+      - ref('mart_orders')
+      - ref('int_orders_items_joined')
+    
+    url: "{{ env_var('BI_TOOL_URL', '') }}/dashboards/sales-performance"
+
+  # TIER 2B: CUSTOMER ANALYTICS DASHBOARD
+  - name: customer_analytics_dashboard
+    type: dashboard
+    description: |
+      Operational dashboard for Marketing, CRM, and Analytics teams.
+      Focuses on customer retention, growth, and segmentation with daily refresh.
+      
+      Includes:
+      - 3 KPI cards (Total Customers, Active %, Churn Rate)
+      - Customer status distribution pie chart
+      - RFM segments bubble chart (Recency, Frequency, Monetary)
+      - Customer lifecycle waterfall/funnel
+      - Customer growth trend line (12 months)
+      - Retention rate heatmap by cohort
+      - Top 20 customers ranking by CLV
+      - Segment performance comparison table
+      
+      Metrics: 15+ KPIs
+      Visualizations: 8+ charts
+      Segments: 5+ analysis dimensions
+      Refresh: Daily (24-hour latency)
+    
+    owner:
+      name: Customer Analytics Lead
+      email: cust-analytics@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('mart_orders')
+      - ref('int_customer_orders')
+    
+    url: "{{ env_var('BI_TOOL_URL', '') }}/dashboards/customer-analytics"
+
+  # TIER 2C: PRODUCT ANALYTICS DASHBOARD
+  - name: product_analytics_dashboard
+    type: dashboard
+    description: |
+      Operational dashboard for Product Management and Merchandising.
+      Tracks product performance, rankings, and optimization opportunities with daily refresh.
+      
+      Includes:
+      - 3 KPI cards (Total SKUs, Avg Price, Total Units Sold)
+      - Top 20 products ranking by revenue
+      - Performance matrix (Popularity vs Revenue bubble chart)
+      - Cross-sell patterns network graph
+      - Bottom 20 products with action recommendations
+      - Price point distribution histogram
+      - Category mix pie chart
+      - Product tier distribution analysis
+      
+      Metrics: 15+ KPIs
+      Visualizations: 8+ charts
+      Rankings: Revenue, Popularity, Performance Tier
+      Refresh: Daily (24-hour latency)
+    
+    owner:
+      name: Product Manager
+      email: product@company.com
+    
+    depends_on:
+      - ref('mart_products')
+      - ref('int_product_performance')
+      - ref('int_orders_items_joined')
+    
+    url: "{{ env_var('BI_TOOL_URL', '') }}/dashboards/product-analytics"
+
+  # TIER 3: CUSTOMER 360 DEEP DIVE
+  - name: customer_360_deep_dive
+    type: dashboard
+    description: |
+      Analytical deep-dive dashboard for Data Analysts and CRM Specialists.
+      Provides comprehensive 360-degree view of individual customers with on-demand refresh.
+      
+      Includes:
+      - Customer profile and current status
+      - Complete order history timeline
+      - Purchase pattern analysis (frequency, recency, timing)
+      - Product affinity matrix (frequently bought products)
+      - Lifetime value projection (3-year forecast)
+      - Churn risk assessment and scoring
+      - RFM scores and segmentation
+      - Interaction log and customer notes
+      - Recommended actions (upsell, cross-sell, retention)
+      
+      Metrics: Dynamic per customer (20+ data points)
+      Visualizations: 6+ chart types
+      Navigation: Complete drill-through from other dashboards
+      Refresh: On-demand
+    
+    owner:
+      name: Data Analyst
+      email: analytics@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('mart_orders')
+      - ref('int_customer_orders')
+      - ref('int_orders_items_joined')
+    
+    url: "{{ env_var('BI_TOOL_URL', '') }}/dashboards/customer-360"
+
+# ANALYSIS & QUERY EXPOSURES
+  - name: customer_analysis_queries
+    type: analysis
+    description: |
+      Production SQL analysis queries for customer-focused analytics.
+      Includes 5 major analyses:
+      1. Customer Segmentation Analysis
+      2. At-Risk Customer Identification
+      3. Customer Lifecycle Analysis
+      4. Retention Metrics by Cohort
+      5. Customer Value Distribution
+    
+    owner:
+      name: Analytics Team
+      email: analytics@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('int_customer_orders')
+    
+    url: null
+
+  - name: sales_analysis_queries
+    type: analysis
+    description: |
+      Production SQL analysis queries for sales-focused analytics.
+      Includes 7 major analyses:
+      1. Daily/Monthly Sales Trends
+      2. Peak Hours Analysis
+      3. Day-of-Week Patterns
+      4. Order Distribution Analysis
+      5. Store Performance Comparison
+      6. Sales Funnel Analysis
+      7. Revenue Forecasting
+    
+    owner:
+      name: Sales Analytics Team
+      email: sales-analytics@company.com
+    
+    depends_on:
+      - ref('mart_orders')
+      - ref('int_orders_items_joined')
+    
+    url: null
+
+  - name: product_analysis_queries
+    type: analysis
+    description: |
+      Production SQL analysis queries for product-focused analytics.
+      Includes 7 major analyses:
+      1. Top/Bottom Products by Revenue
+      2. Product Performance Matrix
+      3. Category Analysis
+      4. Cross-Sell Pattern Mining
+      5. Price Sensitivity Analysis
+      6. Inventory Analysis
+      7. Product Lifecycle Metrics
+    
+    owner:
+      name: Product Analytics Team
+      email: product-analytics@company.com
+    
+    depends_on:
+      - ref('mart_products')
+      - ref('int_product_performance')
+    
+    url: null
+
+  - name: advanced_analytics_queries
+    type: analysis
+    description: |
+      Production SQL queries for advanced statistical analyses.
+      Includes 7 advanced analyses:
+      1. RFM Analysis with Segmentation
+      2. Customer Lifetime Value (CLV) Projection
+      3. Cohort Analysis and Retention
+      4. Churn Risk Scoring
+      5. Customer Affinity Analysis
+      6. Basket Analysis and Association Rules
+      7. Predictive Customer Metrics
+    
+    owner:
+      name: Advanced Analytics Team
+      email: analytics@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('mart_orders')
+      - ref('int_customer_orders')
+      - ref('int_orders_items_joined')
+    
+    url: null
+
+  - name: executive_dashboard_queries
+    type: analysis
+    description: |
+      Production SQL queries powering Executive Dashboard.
+      Includes 7 executive-level analyses:
+      1. Executive KPI Snapshot
+      2. Pareto Analysis
+      3. Sales Funnel and Pipeline
+      4. Cohort Value Progression
+      5. Customer Scorecard
+      6. Growth Rate Analysis
+      7. Forecast and Projections
+    
+    owner:
+      name: Executive Analytics
+      email: executive@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('mart_orders')
+      - ref('mart_products')
+    
+    url: null
+
+# ANALYSIS DOCUMENTATION
+  - name: dashboard_documentation
+    type: analysis
+    description: |
+      Complete dashboard specification and implementation documentation.
+      Includes:
+      - Dashboard architecture and strategy
+      - Complete metric definitions (180+ metrics)
+      - SQL query mappings
+      - Visual wireframes and layouts
+      - Color standards and design guidelines
+      - Implementation checklist (8-week plan)
+      - BI tool configuration examples
+      - Success criteria and validation
+    
+    owner:
+      name: Analytics Lead
+      email: analytics@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('mart_orders')
+      - ref('mart_products')
+    
+    url: null
+
+  - name: data_model_documentation
+    type: analysis
+    description: |
+      Complete dbt data model documentation.
+      Documents the medallion architecture (RAW → STG → INT → MART).
+      Includes table/view definitions, column mappings, and business logic.
+    
+    owner:
+      name: Data Engineer
+      email: data-eng@company.com
+    
+    depends_on:
+      - ref('mart_customers')
+      - ref('mart_orders')
+      - ref('mart_products')
+      - ref('mart_orders_by_customer')
+    
+    url: null
