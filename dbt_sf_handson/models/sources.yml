@@ -1,0 +1,154 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw source tables from JAFFELSHOP_ECOM containing unprocessed transactional data
+    database: JAFFELSHOP_ECOM
+    schema: PUBLIC
+    
+    tables:
+      - name: raw_customers
+        description: Raw customer data source table from JAFFELSHOP_ECOM.PUBLIC.CUSTOMERS
+        
+        columns:
+          - name: customer_id
+            description: Unique identifier for each customer
+            data_tests:
+              - not_null
+              - unique
+          
+          - name: customer_name
+            description: Customer's full name
+            data_tests:
+              - not_null
+
+      - name: raw_orders
+        description: Raw order transaction data from JAFFELSHOP_ECOM.PUBLIC.ORDERS
+        
+        columns:
+          - name: id
+            description: Unique identifier for each order
+            data_tests:
+              - not_null
+              - unique
+          
+          - name: customer
+            description: Reference to customer who placed the order
+            data_tests:
+              - not_null
+          
+          - name: ordered_at
+            description: Timestamp when order was placed
+            data_tests:
+              - not_null
+          
+          - name: store_id
+            description: Store/location identifier where order was placed
+          
+          - name: subtotal
+            description: Subtotal amount before tax
+            data_tests:
+              - not_null
+          
+          - name: tax_paid
+            description: Tax amount paid on the order
+            data_tests:
+              - not_null
+          
+          - name: order_total
+            description: Total amount including tax
+            data_tests:
+              - not_null
+
+      - name: raw_items
+        description: Raw order line items table from JAFFELSHOP_ECOM.PUBLIC.ITEMS
+        
+        columns:
+          - name: item_id
+            description: Unique identifier for each line item
+            data_tests:
+              - not_null
+              - unique
+          
+          - name: item_order_id
+            description: Reference to the order this item belongs to
+            data_tests:
+              - not_null
+          
+          - name: item_product_sku
+            description: Stock keeping unit - unique product identifier
+            data_tests:
+              - not_null
+
+      - name: raw_products
+        description: Raw product catalog data from JAFFELSHOP_ECOM.PUBLIC.PRODUCTS
+        
+        columns:
+          - name: sku
+            description: Stock keeping unit - unique product code
+            data_tests:
+              - not_null
+              - unique
+          
+          - name: name
+            description: Display name of the product
+            data_tests:
+              - not_null
+          
+          - name: type
+            description: Category or type of product
+          
+          - name: price
+            description: List price of the product
+            data_tests:
+              - not_null
+          
+          - name: description
+            description: Product description
+
+      - name: raw_tweets
+        description: Raw tweets data from JAFFELSHOP_ECOM.PUBLIC.TWEETS
+        
+        columns:
+          - name: id
+            description: Unique identifier for each tweet
+            data_tests:
+              - not_null
+              - unique
+          
+          - name: user_id
+            description: User who posted the tweet
+            data_tests:
+              - not_null
+          
+          - name: tweeted_at
+            description: Timestamp when tweet was posted
+            data_tests:
+              - not_null
+          
+          - name: content
+            description: Tweet content/text
+
+      - name: raw_supplies
+        description: Raw supplies/inventory data from JAFFELSHOP_ECOM.PUBLIC.SUPPLIES
+        
+        columns:
+          - name: id
+            description: Unique identifier for each supply item
+            data_tests:
+              - not_null
+              - unique
+          
+          - name: name
+            description: Supply name
+            data_tests:
+              - not_null
+          
+          - name: cost
+            description: Cost of the supply item
+          
+          - name: perishable
+            description: Whether supply is perishable (boolean)
+          
+          - name: sku
+            description: Stock keeping unit for supply
