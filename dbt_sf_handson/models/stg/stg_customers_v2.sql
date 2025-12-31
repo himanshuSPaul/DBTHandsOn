@@ -1,8 +1,13 @@
--- Default version (v2) of stg_customers
--- For version history and older versions, see:
--- - v1: stg_customers_v1.sql (DEPRECATED - removal date: 2025-06-30)
--- - v2: stg_customers.sql (CURRENT - latest recommended version)
--- See VERSIONING_GUIDE.md for detailed versioning strategy
+-- Version 2: Enhanced stg_customers (CURRENT - RECOMMENDED)
+-- Purpose: Customer data with improved name handling, validation, and metadata
+-- Status: CURRENT - recommended for all new models and migrations
+-- Features:
+--   - Better name parsing (handles hyphens, apostrophes)
+--   - Added customer_name_length for data quality
+--   - Added is_valid_name flag for data validation
+--   - Added metadata (updated_at tracking)
+-- Migration Path: Existing models should update refs to version 2
+-- See VERSIONING_GUIDE.md for implementation details
 
 {{ config(
   meta={
@@ -25,7 +30,7 @@ WITH CUSTOMERS AS (
         CUSTOMER_ID,
         CUSTOMER_NAME,
         LENGTH(CUSTOMER_NAME) as CUSTOMER_NAME_LENGTH,
-        -- Robust name parsing that handles hyphens and apostrophes
+        -- More robust name parsing that handles hyphens and apostrophes
         SPLIT_PART(REGEXP_REPLACE(CUSTOMER_NAME, '-', ' '), ' ', 1) as FIRST_NAME,
         CASE 
             WHEN ARRAY_SIZE(SPLIT(REGEXP_REPLACE(CUSTOMER_NAME, '-', ' '), ' ')) = 3 

@@ -1,0 +1,381 @@
+version: 2
+
+# ============================================================================
+# MODEL DEFINITIONS WITH GROUP ASSIGNMENTS
+# ============================================================================
+# This file assigns models to the groups defined in groups.yml
+# 
+# Group Structure:
+#   - customer_analytics: Customer dimension and metrics
+#   - order_analytics: Order transactions and analysis
+#   - product_analytics: Product catalog and metrics
+#   - data_infrastructure: Staging and infrastructure
+# ============================================================================
+
+models:
+  # ========================================================================
+  # STAGING MODELS (Cleaned and standardized data)
+  # ========================================================================
+
+  - name: stg_customers
+    description: Cleaned and standardized customer data
+    config:
+      materialized: view
+      group: customer_analytics
+      tags:
+        - staging
+        - customer
+        - pii
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+      - name: customer_name
+        description: Customer full name
+      - name: first_name
+        description: Customer first name
+      - name: last_name
+        description: Customer last name
+      - name: address
+        description: Customer address
+
+  - name: stg_orders
+    description: Cleaned and standardized order transaction data
+    config:
+      materialized: incremental
+      group: order_analytics
+      unique_key: order_id
+      on_schema_change: ignore
+      tags:
+        - staging
+        - orders
+        - incremental
+    columns:
+      - name: order_id
+        description: Unique order identifier
+        tests:
+          - unique
+          - not_null
+      - name: order_customer
+        description: Customer who placed the order
+        tests:
+          - not_null
+      - name: order_date
+        description: Date order was placed
+        tests:
+          - not_null
+      - name: order_subtotal
+        description: Order subtotal before tax
+        tests:
+          - not_null
+      - name: order_tax_paid
+        description: Tax amount paid on order
+        tests:
+          - not_null
+      - name: order_total
+        description: Total order amount (subtotal + tax)
+        tests:
+          - not_null
+      - name: order_segment
+        description: Order value segment
+
+  - name: stg_items
+    description: Order line items (incremental)
+    config:
+      materialized: incremental
+      group: order_analytics
+      unique_key: item_id
+      on_schema_change: ignore
+      tags:
+        - staging
+        - orders
+        - incremental
+    columns:
+      - name: item_id
+        description: Unique item identifier
+        tests:
+          - unique
+          - not_null
+      - name: item_order_id
+        description: Order this item belongs to
+        tests:
+          - not_null
+      - name: item_sku
+        description: Product SKU for this item
+        tests:
+          - not_null
+      - name: item_quantity
+        description: Quantity of item ordered
+        tests:
+          - not_null
+
+  - name: stg_products
+    description: Cleaned and standardized product master data
+    config:
+      materialized: view
+      group: product_analytics
+      tags:
+        - staging
+        - products
+    columns:
+      - name: product_sku
+        description: Unique product SKU identifier
+        tests:
+          - unique
+          - not_null
+      - name: product_name
+        description: Product name
+        tests:
+          - not_null
+      - name: product_price
+        description: Product price
+        tests:
+          - not_null
+
+  - name: stg_supplies
+    description: Cleaned supply/inventory data
+    config:
+      materialized: view
+      group: data_infrastructure
+      tags:
+        - staging
+        - infrastructure
+    columns:
+      - name: supply_id
+        description: Unique supply identifier
+      - name: supply_name
+        description: Supply name
+      - name: supply_cost
+        description: Cost of supply
+
+  - name: stg_tweets
+    description: Cleaned social media tweet data
+    config:
+      materialized: view
+      group: data_infrastructure
+      tags:
+        - staging
+        - infrastructure
+        - social
+    columns:
+      - name: tweet_id
+        description: Unique tweet identifier
+      - name: user_id
+        description: User who posted tweet
+      - name: tweeted_at
+        description: Timestamp of tweet
+
+  - name: stg_stores
+    description: Cleaned store master data
+    config:
+      materialized: view
+      group: data_infrastructure
+      tags:
+        - staging
+        - infrastructure
+        - master-data
+    columns:
+      - name: store_id
+        description: Unique store identifier
+      - name: store_name
+        description: Store name
+      - name: store_location
+        description: Store location/address
+
+  # ========================================================================
+  # INTERMEDIATE MODELS (Joined and aggregated data)
+  # ========================================================================
+
+  - name: int_customer_orders
+    description: Customer-order aggregations with metrics
+    config:
+      materialized: table
+      group: customer_analytics
+      tags:
+        - intermediate
+        - customer
+        - metrics
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+      - name: total_orders
+        description: Total number of orders per customer
+      - name: total_spent
+        description: Total amount spent by customer
+      - name: customer_lifetime_value
+        description: Total revenue per customer
+
+  - name: int_orders_items_joined
+    description: Joined orders and items with enriched details
+    config:
+      materialized: view
+      group: order_analytics
+      tags:
+        - intermediate
+        - orders
+        - slow
+    columns:
+      - name: order_id
+        description: Order identifier
+      - name: item_id
+        description: Item identifier
+      - name: product_sku
+        description: Product SKU
+      - name: item_quantity
+        description: Item quantity
+
+  - name: int_product_performance
+    description: Product-level performance metrics
+    config:
+      materialized: view
+      group: product_analytics
+      tags:
+        - intermediate
+        - products
+        - metrics
+    columns:
+      - name: product_sku
+        description: Product SKU
+      - name: times_purchased
+        description: Number of times purchased
+      - name: total_revenue
+        description: Total revenue from product
+      - name: avg_order_value
+        description: Average order value for product
+
+  # ========================================================================
+  # MART MODELS (Analytics-ready fact and dimension tables)
+  # ========================================================================
+
+  - name: mart_customers
+    description: Customer dimension table for analytics
+    config:
+      materialized: table
+      group: customer_analytics
+      tags:
+        - mart
+        - customer
+        - critical
+        - pii
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+      - name: customer_name
+        description: Customer name
+      - name: total_orders
+        description: Total orders per customer
+      - name: customer_lifetime_value
+        description: Customer lifetime value in revenue
+      - name: customer_segment
+        description: Customer segmentation (VIP, Premium, etc.)
+
+  - name: mart_orders
+    description: Order fact table for analytics (incremental)
+    config:
+      materialized: incremental
+      group: order_analytics
+      unique_key: order_id
+      on_schema_change: ignore
+      tags:
+        - mart
+        - orders
+        - critical
+        - incremental
+    columns:
+      - name: order_id
+        description: Unique order identifier
+      - name: customer_id
+        description: Customer identifier
+      - name: order_date
+        description: Order date
+      - name: order_subtotal
+        description: Order subtotal
+      - name: order_tax_paid
+        description: Tax paid
+      - name: order_total
+        description: Total amount
+      - name: order_value_segment
+        description: Order value segment (High/Medium/Low Value)
+
+  - name: mart_products
+    description: Product dimension table for analytics
+    config:
+      materialized: table
+      group: product_analytics
+      tags:
+        - mart
+        - products
+        - critical
+    columns:
+      - name: product_sku
+        description: Unique product SKU
+      - name: product_name
+        description: Product name
+      - name: times_purchased
+        description: Purchase count
+      - name: avg_unit_price
+        description: Average unit price
+      - name: total_revenue
+        description: Total revenue from product
+
+# ============================================================================
+# SNAPSHOT DEFINITIONS
+# ============================================================================
+# Snapshots use dbt's SCD Type 2 pattern for historical tracking
+
+snapshots:
+  - name: snap_customers
+    description: Historical snapshot of customer profiles (SCD Type 2)
+    config:
+      group: customer_analytics
+      tags:
+        - snapshot
+        - customer
+        - critical
+        - pii
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+      - name: customer_name
+        description: Customer name at snapshot time
+      - name: dbt_valid_from
+        description: Valid from timestamp
+      - name: dbt_valid_to
+        description: Valid to timestamp
+
+  - name: snap_orders
+    description: Historical snapshot of orders (SCD Type 2)
+    config:
+      group: order_analytics
+      tags:
+        - snapshot
+        - orders
+        - critical
+    columns:
+      - name: order_id
+        description: Unique order identifier
+      - name: order_total
+        description: Order total at snapshot time
+      - name: dbt_valid_from
+        description: Valid from timestamp
+      - name: dbt_valid_to
+        description: Valid to timestamp
+
+  - name: snap_products
+    description: Historical snapshot of products (SCD Type 2)
+    config:
+      group: product_analytics
+      tags:
+        - snapshot
+        - products
+        - critical
+    columns:
+      - name: product_sku
+        description: Product SKU
+      - name: product_name
+        description: Product name
+      - name: product_price
+        description: Price at snapshot time
+      - name: dbt_valid_from
+        description: Valid from timestamp
+      - name: dbt_valid_to
+        description: Valid to timestamp

@@ -1,7 +1,6 @@
 name: 'dbt_sf_handson'
 version: '1.0.0'
 
-
 profile: 'dbt_sf_handson'
 
 model-paths: ["models"]
@@ -15,7 +14,69 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+# PRE & POST HOOKS CONFIGURATION
+on-run-start: 
+  - "{{ create_audit_log_table() }}"
 
 models:
   dbt_sf_handson:
-    +materialized: view
+    +schema: default_schema
+    
+    # PRE-HOOK: Configure Snowflake session parameters for all models
+    +pre_hook: |
+      ALTER SESSION SET 
+        STATEMENT_TIMEOUT_IN_SECONDS = 3600,
+        QUERY_TAG = 'dbt_{{ invocation_id }}_{{ this.name }}';
+    
+    stg:
+      +materialized: view
+      +schema: stg
+      # Incremental models in stg layer for performance
+      # Note: stg_items and stg_orders are incremental (faster processing)
+      # They use merge strategy with unique keys for upsert behavior
+      # Post-hook: Log STG model builds
+      +post_hook: "{{ log_model_audit('SUCCESS') }}"
+      # Model-level overrides:
+      # - stg_items: incremental table (unique_key: ITEM_ID)
+      # - stg_orders: incremental table (unique_key: ORDER_ID)
+      # - Other stg_* models: remain as views (no incremental needed)
+      # Model versioning: See VERSIONING_GUIDE.md
+      # stg_customers has versions v1 and v2, with v2 as latest
+    
+    int:
+      +materialized: table
+      +schema: int
+      # Post-hook: Log INT model builds
+      +post_hook: "{{ log_model_audit('SUCCESS') }}"
+    
+    # MART LAYER: Maximum security and tracking
+    mart:
+      +materialized: table
+      +schema: default_schema
+      # Incremental models in mart layer for performance
+      # Note: mart_orders and mart_customers are incremental
+      # They use merge strategy with unique keys for upsert behavior
+      # Post-hooks for MART layer - Grant permissions and audit logging
+      +post_hook:
+        # 1. Log audit entry
+        - "{{ log_model_audit('SUCCESS') }}"
+        # 2. Optional: Uncomment below if ANALYST_ROLE and BI_TOOL_ROLE exist
+        # - "GRANT SELECT ON {{ this }} TO ROLE ANALYST_ROLE"
+        # - "GRANT SELECT ON {{ this }} TO ROLE BI_TOOL_ROLE"
+
+seeds:
+  dbt_sf_handson:
+    +schema: seeds
+    +post_hook: "{{ log_model_audit('SUCCESS') }}"
+
+# SNAPSHOT CONFIGURATION
+# Snapshots track Slowly Changing Dimensions (SCD Type 2)
+# See snapshots/ folder for implementations
+snapshots:
+  dbt_sf_handson:
+    +schema: snapshots
+    +target_schema: snapshots
+    # Using 'check' strategy: tracks ANY change to ALL columns
+    # check_cols: all = track all columns for changes
+    +strategy: check
+    +check_cols: all

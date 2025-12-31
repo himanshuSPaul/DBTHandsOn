@@ -1,0 +1,122 @@
+version: 2
+
+# ============================================================================
+# MODEL GROUPS - dbt 1.8+ Feature
+# ============================================================================
+# Purpose: Organize models into logical groups by business domain
+# Benefits:
+#   - Clear model organization and ownership
+#   - Select/run models by group: dbt run --select group:customer_analytics
+#   - Assign team ownership and responsibilities
+#   - Better governance and documentation
+#
+# Note: In dbt 1.8+, groups are defined here and then assigned to models
+#       in their respective model definition files (see models.yml, etc.)
+#
+# Reference: https://docs.getdbt.com/docs/build/groups
+# ============================================================================
+
+groups:
+  # ========================================================================
+  # Customer Analytics Group
+  # ========================================================================
+  # Purpose: All models related to customer analysis and segmentation
+  # Refresh: Daily
+  # SLA: 24 hours
+  
+  - name: customer_analytics
+    description: |
+      Customer dimension and analysis models.
+      
+      Includes:
+      - Customer profiles and segmentation
+      - Historical customer tracking (snapshots)
+      - Customer-level metrics and KPIs
+      - Customer-order relationships
+      
+      Use Cases:
+      - Customer 360 dashboards
+      - Segmentation and targeting
+      - Churn prediction
+      - Customer lifetime value analysis
+    owner:
+      name: analytics-team
+      email: analytics@example.com
+
+  # ========================================================================
+  # Order Analytics Group
+  # ========================================================================
+  # Purpose: All models related to order processing and analysis
+  # Refresh: Daily
+  # SLA: 24 hours
+
+  - name: order_analytics
+    description: |
+      Order transaction and analysis models.
+      
+      Includes:
+      - Order transactions and line items
+      - Order-product relationships
+      - Historical order tracking (snapshots)
+      - Order-level metrics and segmentation
+      
+      Use Cases:
+      - Order fulfillment dashboards
+      - Revenue analysis
+      - Product performance tracking
+      - Order trend analysis
+    owner:
+      name: analytics-team
+      email: analytics@example.com
+
+  # ========================================================================
+  # Product Analytics Group
+  # ========================================================================
+  # Purpose: All models related to product and catalog analysis
+  # Refresh: Daily
+  # SLA: 24 hours
+
+  - name: product_analytics
+    description: |
+      Product catalog and analysis models.
+      
+      Includes:
+      - Product master data and attributes
+      - Product performance metrics
+      - Historical product tracking (snapshots)
+      - Sales and inventory analysis
+      
+      Use Cases:
+      - Product performance dashboards
+      - Catalog management
+      - Pricing analysis
+      - Product demand forecasting
+    owner:
+      name: analytics-team
+      email: analytics@example.com
+
+  # ========================================================================
+  # Data Infrastructure Group
+  # ========================================================================
+  # Purpose: Core infrastructure and staging models
+  # Refresh: Daily
+  # SLA: 12 hours
+
+  - name: data_infrastructure
+    description: |
+      Core data infrastructure and staging layer.
+      
+      Includes:
+      - Staging transformations from raw sources
+      - Data cleaning and standardization
+      - Store master data
+      - Utility and reference data
+      
+      Use Cases:
+      - Data pipelines
+      - Data validation
+      - ETL monitoring
+      - Source data quality
+    owner:
+      name: data-engineering
+      email: data-engineering@example.com

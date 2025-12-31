@@ -5,10 +5,25 @@ sources:
     description: Raw source tables from JAFFELSHOP_ECOM containing unprocessed transactional data
     database: JAFFELSHOP_ECOM
     schema: PUBLIC
+    config:
+      # Freshness Configuration - Monitors data staleness
+      freshness:
+        warn_after: {count: 12, period: hour}
+        error_after: {count: 24, period: hour}
+      loaded_at_field: null  # Snowflake timestamp tracking
     
     tables:
       - name: raw_customers
         description: Raw customer data source table from JAFFELSHOP_ECOM.PUBLIC.CUSTOMERS
+        config:
+          tags:
+            - critical
+            - pii
+            - customer
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 24, period: hour}
+          loaded_at_field: null
         
         columns:
           - name: customer_id
@@ -24,6 +39,15 @@ sources:
 
       - name: raw_orders
         description: Raw order transaction data from JAFFELSHOP_ECOM.PUBLIC.ORDERS
+        config:
+          tags:
+            - critical
+            - revenue
+            - orders
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 24, period: hour}
+          loaded_at_field: null
         
         columns:
           - name: id
@@ -44,6 +68,8 @@ sources:
           
           - name: store_id
             description: Store/location identifier where order was placed
+            data_tests:
+              - not_null
           
           - name: subtotal
             description: Subtotal amount before tax
@@ -62,6 +88,15 @@ sources:
 
       - name: raw_items
         description: Raw order line items table from JAFFELSHOP_ECOM.PUBLIC.ITEMS
+        config:
+          tags:
+            - critical
+            - orders
+            - line-items
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 24, period: hour}
+          loaded_at_field: null
         
         columns:
           - name: item_id
@@ -82,6 +117,15 @@ sources:
 
       - name: raw_products
         description: Raw product catalog data from JAFFELSHOP_ECOM.PUBLIC.PRODUCTS
+        config:
+          tags:
+            - high
+            - products
+            - catalog
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 48, period: hour}
+          loaded_at_field: null
         
         columns:
           - name: sku

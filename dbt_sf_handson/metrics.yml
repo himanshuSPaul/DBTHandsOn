@@ -1,0 +1,444 @@
+version: 2
+
+metrics:
+  
+  # ============================================================================
+  # CUSTOMER METRICS (3)
+  # ============================================================================
+  
+  - name: total_customers
+    label: Total Customers
+    model: ref('stg_customers')
+    description: Total number of unique customers in the database
+    
+    calculation_method: count_distinct
+    expression: customer_id
+    
+    timestamp: created_at
+    time_grains: [day, week, month, year]
+    
+    dimensions:
+      - customer_state
+      - customer_country
+    
+    filters:
+      - field: is_deleted
+        value: false
+    
+    meta:
+      owner: analytics_team
+      sla: "99.9%"
+      refresh_frequency: daily
+      business_impact: high
+      use_cases:
+        - customer_health
+        - growth_tracking
+        - cohort_analysis
+  
+  - name: new_customers
+    label: New Customers
+    model: ref('stg_customers')
+    description: Count of customers created in each time period
+    
+    calculation_method: count_distinct
+    expression: customer_id
+    
+    timestamp: created_at
+    time_grains: [day, week, month, quarter, year]
+    
+    dimensions:
+      - customer_state
+      - customer_country
+      - customer_lifetime_value_tier
+    
+    filters:
+      - field: is_deleted
+        value: false
+    
+    meta:
+      owner: analytics_team
+      sla: "99.9%"
+      refresh_frequency: daily
+      business_impact: high
+      unit: customers
+      change_tracking: month_over_month
+  
+  - name: customer_lifetime_value
+    label: Customer Lifetime Value
+    model: ref('mart_customers')
+    description: Average lifetime value per customer
+    
+    calculation_method: average
+    expression: lifetime_value
+    
+    timestamp: created_at
+    time_grains: [month, quarter, year]
+    
+    dimensions:
+      - customer_state
+      - customer_country
+      - lifetime_value_tier
+    
+    filters:
+      - field: is_deleted
+        value: false
+    
+    meta:
+      owner: finance_team
+      sla: "99.5%"
+      refresh_frequency: daily
+      business_impact: critical
+      unit: dollars
+      currency: USD
+  
+  # ============================================================================
+  # ORDER METRICS (4)
+  # ============================================================================
+  
+  - name: total_orders
+    label: Total Orders
+    model: ref('stg_orders')
+    description: Total count of all orders placed
+    
+    calculation_method: count
+    expression: 1
+    
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+    
+    dimensions:
+      - order_status
+      - customer_id
+    
+    filters:
+      - field: order_status
+        value: "!cancelled"
+    
+    meta:
+      owner: operations_team
+      sla: "99.9%"
+      refresh_frequency: daily
+      business_impact: critical
+      unit: orders
+  
+  - name: order_count_by_status
+    label: Order Count by Status
+    model: ref('stg_orders')
+    description: Count of orders by their current status
+    
+    calculation_method: count
+    expression: 1
+    
+    timestamp: order_date
+    time_grains: [day, week, month]
+    
+    dimensions:
+      - order_status
+    
+    meta:
+      owner: operations_team
+      sla: "99.9%"
+      refresh_frequency: daily
+      business_impact: high
+      unit: orders
+  
+  - name: total_revenue
+    label: Total Revenue
+    model: ref('mart_orders')
+    description: Sum of all order revenue (actual sales)
+    
+    calculation_method: sum
+    expression: order_total
+    
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+    
+    dimensions:
+      - order_month
+      - customer_state
+      - order_status
+    
+    filters:
+      - field: order_status
+        value: completed
+    
+    meta:
+      owner: finance_team
+      sla: "99.5%"
+      refresh_frequency: daily
+      business_impact: critical
+      unit: dollars
+      currency: USD
+      accounting: revenue
+  
+  - name: average_order_value
+    label: Average Order Value
+    model: ref('mart_orders')
+    description: Mean revenue per order (AOV)
+    
+    calculation_method: average
+    expression: order_total
+    
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+    
+    dimensions:
+      - order_month
+      - customer_state
+    
+    filters:
+      - field: order_status
+        value: completed
+    
+    meta:
+      owner: finance_team
+      sla: "99.5%"
+      refresh_frequency: daily
+      business_impact: high
+      unit: dollars
+      currency: USD
+      calculation: "sum(order_total) / count(order_id)"
+  
+  # ============================================================================
+  # PRODUCT METRICS (3)
+  # ============================================================================
+  
+  - name: total_products
+    label: Total Products
+    model: ref('stg_products')
+    description: Total number of active products in catalog
+    
+    calculation_method: count_distinct
+    expression: product_id
+    
+    timestamp: created_at
+    time_grains: [day, month, quarter, year]
+    
+    dimensions:
+      - product_category
+      - product_brand
+    
+    filters:
+      - field: is_active
+        value: true
+    
+    meta:
+      owner: merchandising_team
+      sla: "99%"
+      refresh_frequency: daily
+      business_impact: medium
+      unit: products
+  
+  - name: product_revenue
+    label: Product Revenue
+    model: ref('mart_orders')
+    description: Total revenue per product
+    
+    calculation_method: sum
+    expression: order_total
+    
+    timestamp: order_date
+    time_grains: [month, quarter, year]
+    
+    dimensions:
+      - product_category
+      - product_brand
+      - product_id
+    
+    filters:
+      - field: order_status
+        value: completed
+    
+    meta:
+      owner: merchandising_team
+      sla: "99.5%"
+      refresh_frequency: daily
+      business_impact: high
+      unit: dollars
+      currency: USD
+  
+  - name: product_sell_through_rate
+    label: Product Sell Through Rate
+    model: ref('mart_orders')
+    description: Percentage of inventory sold vs. total available
+    
+    calculation_method: average
+    expression: sell_through_percent
+    
+    timestamp: order_date
+    time_grains: [month, quarter, year]
+    
+    dimensions:
+      - product_category
+      - product_brand
+    
+    meta:
+      owner: merchandising_team
+      sla: "99%"
+      refresh_frequency: weekly
+      business_impact: medium
+      unit: percentage
+  
+  # ============================================================================
+  # OPERATIONAL METRICS (2)
+  # ============================================================================
+  
+  - name: order_fulfillment_time
+    label: Order Fulfillment Time
+    model: ref('mart_orders')
+    description: Average days from order to fulfillment
+    
+    calculation_method: average
+    expression: days_to_fulfillment
+    
+    timestamp: order_date
+    time_grains: [day, week, month, quarter]
+    
+    dimensions:
+      - order_month
+      - fulfillment_location
+    
+    filters:
+      - field: order_status
+        value: completed
+    
+    meta:
+      owner: operations_team
+      sla: "99.5%"
+      refresh_frequency: daily
+      business_impact: medium
+      unit: days
+      target: "< 3 days"
+  
+  - name: order_return_rate
+    label: Order Return Rate
+    model: ref('mart_orders')
+    description: Percentage of orders returned by customers
+    
+    calculation_method: average
+    expression: return_rate_percent
+    
+    timestamp: order_date
+    time_grains: [week, month, quarter, year]
+    
+    dimensions:
+      - product_category
+      - customer_state
+      - order_month
+    
+    meta:
+      owner: operations_team
+      sla: "99%"
+      refresh_frequency: weekly
+      business_impact: medium
+      unit: percentage
+      target: "< 5%"
+  
+  # ============================================================================
+  # DATA QUALITY METRICS (2)
+  # ============================================================================
+  
+  - name: null_customer_records
+    label: Null Customer Records
+    model: ref('stg_customers')
+    description: Count of customer records with null critical fields
+    
+    calculation_method: count
+    expression: "CASE WHEN customer_id IS NULL OR email IS NULL THEN 1 ELSE 0 END"
+    
+    timestamp: created_at
+    time_grains: [day, week, month]
+    
+    meta:
+      owner: data_quality_team
+      sla: "100%"
+      refresh_frequency: daily
+      business_impact: critical
+      unit: records
+      alert_threshold: "> 5"
+      data_quality: true
+  
+  - name: duplicate_order_records
+    label: Duplicate Order Records
+    model: ref('stg_orders')
+    description: Count of potential duplicate orders
+    
+    calculation_method: count
+    expression: "CASE WHEN ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY created_at) > 1 THEN 1 ELSE 0 END"
+    
+    timestamp: order_date
+    time_grains: [day, week, month]
+    
+    meta:
+      owner: data_quality_team
+      sla: "100%"
+      refresh_frequency: daily
+      business_impact: critical
+      unit: records
+      alert_threshold: "> 0"
+      data_quality: true
+
+---
+
+# USAGE DOCUMENTATION
+#
+# These metrics are available in Looker, Tableau, and other BI tools via dbt Cloud.
+#
+# QUERY METRICS IN PYTHON:
+#   from dbt.semantic_layer.client import SemanticLayerClient
+#   client = SemanticLayerClient(...)
+#   revenue = client.query(
+#     metrics=['total_revenue'],
+#     dimensions=['order_month'],
+#     start_date='2024-01-01'
+#   )
+#
+# QUERY METRICS IN SQL (compiled by dbt):
+#   SELECT
+#     order_month,
+#     total_revenue
+#   FROM {{ metrics.calculate('total_revenue', [order_month]) }}
+#   WHERE order_month >= '2024-01-01'
+#
+# METRIC NAMING CONVENTIONS:
+#   - Use snake_case for all metric names
+#   - Prefix operational metrics with 'kpi_' if critical
+#   - Prefix quality metrics with 'dq_' (data quality)
+#   - Suffix tier metrics with '_tier' (e.g., ltv_tier)
+#
+# OWNERSHIP & SLA:
+#   - Each metric has an owner (analytics_team, finance_team, etc.)
+#   - SLA indicates data freshness guarantee
+#   - refresh_frequency defines how often metric updates
+#   - alert_threshold defines critical data quality alerts
+#
+# DIMENSIONS:
+#   - Dimensions provide context for analysis
+#   - Always include time dimension (timestamp field)
+#   - Use consistent dimension naming with source tables
+#
+# FILTERS:
+#   - Filters apply to all queries of that metric
+#   - Examples: exclude deleted records, only completed orders
+#   - Business logic is centralized in metrics definition
+#
+# METADATA:
+#   - owner: Team responsible for metric accuracy
+#   - sla: Availability/freshness SLA (99%, 99.5%, 99.9%)
+#   - refresh_frequency: How often metric is updated
+#   - business_impact: High/Medium/Low significance
+#   - unit: Currency, percentage, count, etc.
+#   - use_cases: How metric is used in business
+#   - target: Expected performance level
+#
+# BEST PRACTICES:
+#   1. Define metric once, use everywhere → consistency
+#   2. Include business logic filters in metric definition
+#   3. Always set proper time grains (day, week, month, etc.)
+#   4. Document unit and currency for financial metrics
+#   5. Set SLA expectations and refresh schedules
+#   6. Include owner and use cases for governance
+#   7. Add data quality metrics for monitoring
+#   8. Use dimensions for flexible analysis
+#   9. Version metrics as business definitions change
+#   10. Test metrics in BI tools before rollout
