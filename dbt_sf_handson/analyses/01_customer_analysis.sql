@@ -1,0 +1,103 @@
+-- ============================================================================
+-- CUSTOMER ANALYSIS QUERIES
+-- ============================================================================
+
+-- 1. TOP 10 HIGH-VALUE CUSTOMERS
+-- Identify customers driving the most revenue
+SELECT 
+    CUSTOMER_ID,
+    CUSTOMER_NAME,
+    FIRST_NAME,
+    LAST_NAME,
+    CUSTOMER_LIFETIME_VALUE,
+    TOTAL_ORDERS,
+    AVG_ORDER_VALUE,
+    CUSTOMER_TENURE_DAYS,
+    CUSTOMER_SEGMENT,
+    CUSTOMER_STATUS,
+    ROUND(CUSTOMER_VALUE_PER_ORDER, 2) as VALUE_PER_ORDER,
+    ROUND(CUSTOMER_ORDER_FREQUENCY_ANNUAL, 2) as ANNUAL_FREQUENCY
+FROM {{ ref('mart_customers') }}
+WHERE CUSTOMER_ID IS NOT NULL
+ORDER BY CUSTOMER_LIFETIME_VALUE DESC
+LIMIT 10;
+
+-- ============================================================================
+
+-- 2. CUSTOMER SEGMENTATION SUMMARY
+-- Breakdown of customer count and value by segment and status
+SELECT 
+    CUSTOMER_SEGMENT,
+    CUSTOMER_STATUS,
+    COUNT(DISTINCT CUSTOMER_ID) as CUSTOMER_COUNT,
+    SUM(CUSTOMER_LIFETIME_VALUE) as TOTAL_SEGMENT_VALUE,
+    ROUND(AVG(CUSTOMER_LIFETIME_VALUE), 2) as AVG_CLV,
+    ROUND(AVG(AVG_ORDER_VALUE), 2) as AVG_AOV,
+    ROUND(AVG(TOTAL_ORDERS), 2) as AVG_ORDERS_PER_CUSTOMER,
+    MIN(CUSTOMER_LIFETIME_VALUE) as MIN_CLV,
+    MAX(CUSTOMER_LIFETIME_VALUE) as MAX_CLV
+FROM {{ ref('mart_customers') }}
+WHERE CUSTOMER_ID IS NOT NULL
+GROUP BY CUSTOMER_SEGMENT, CUSTOMER_STATUS
+ORDER BY TOTAL_SEGMENT_VALUE DESC;
+
+-- ============================================================================
+
+-- 3. AT-RISK CUSTOMERS (CHURN RISK)
+-- Customers with declining engagement
+SELECT 
+    CUSTOMER_ID,
+    CUSTOMER_NAME,
+    CUSTOMER_LIFETIME_VALUE,
+    TOTAL_ORDERS,
+    LAST_ORDER_DATE,
+    RECENCY_DAYS,
+    AVG_ORDER_VALUE,
+    CUSTOMER_TENURE_DAYS,
+    ROUND((RECENCY_DAYS / NULLIF(CUSTOMER_TENURE_DAYS, 0)) * 100, 2) as RECENCY_RATIO_PERCENT
+FROM {{ ref('mart_customers') }}
+WHERE CUSTOMER_STATUS = 'At Risk'
+ORDER BY RECENCY_DAYS DESC;
+
+-- ============================================================================
+
+-- 4. CUSTOMER LIFECYCLE ANALYSIS
+-- Track customer journey over time
+SELECT 
+    CASE 
+        WHEN CUSTOMER_TENURE_DAYS < 30 THEN 'New (0-30 days)'
+        WHEN CUSTOMER_TENURE_DAYS < 90 THEN 'Growing (31-90 days)'
+        WHEN CUSTOMER_TENURE_DAYS < 180 THEN 'Established (91-180 days)'
+        WHEN CUSTOMER_TENURE_DAYS < 365 THEN 'Loyal (181-365 days)'
+        ELSE 'Very Loyal (365+ days)'
+    END as CUSTOMER_LIFECYCLE_STAGE,
+    COUNT(DISTINCT CUSTOMER_ID) as CUSTOMER_COUNT,
+    ROUND(AVG(CUSTOMER_LIFETIME_VALUE), 2) as AVG_CLV,
+    ROUND(AVG(TOTAL_ORDERS), 2) as AVG_ORDERS,
+    ROUND(AVG(RECENCY_DAYS), 2) as AVG_RECENCY_DAYS,
+    SUM(CUSTOMER_LIFETIME_VALUE) as TOTAL_REVENUE
+FROM {{ ref('mart_customers') }}
+WHERE CUSTOMER_ID IS NOT NULL
+GROUP BY CUSTOMER_LIFECYCLE_STAGE
+ORDER BY AVG_CLV DESC;
+
+-- ============================================================================
+
+-- 5. CUSTOMER ACQUISITION & RETENTION
+-- New vs returning customers
+SELECT 
+    CASE 
+        WHEN FIRST_ORDER_DATE >= DATEADD(MONTH, -3, CURRENT_DATE()) THEN 'Q0 (Last 3 Months - New)'
+        WHEN FIRST_ORDER_DATE >= DATEADD(MONTH, -6, CURRENT_DATE()) THEN 'Q-1 (3-6 Months)'
+        WHEN FIRST_ORDER_DATE >= DATEADD(MONTH, -12, CURRENT_DATE()) THEN 'Q-2 (6-12 Months)'
+        ELSE 'Q-3+ (12+ Months)'
+    END as COHORT,
+    COUNT(DISTINCT CUSTOMER_ID) as COHORT_SIZE,
+    COUNT(DISTINCT CASE WHEN CUSTOMER_STATUS = 'Active' THEN CUSTOMER_ID END) as ACTIVE_CUSTOMERS,
+    ROUND(100.0 * COUNT(DISTINCT CASE WHEN CUSTOMER_STATUS = 'Active' THEN CUSTOMER_ID END) 
+        / NULLIF(COUNT(DISTINCT CUSTOMER_ID), 0), 2) as RETENTION_RATE_PERCENT,
+    ROUND(AVG(CUSTOMER_LIFETIME_VALUE), 2) as AVG_CLV
+FROM {{ ref('mart_customers') }}
+WHERE CUSTOMER_ID IS NOT NULL
+GROUP BY COHORT
+ORDER BY COHORT;

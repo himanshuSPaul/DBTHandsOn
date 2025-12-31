@@ -1,0 +1,150 @@
+-- ============================================================================
+-- PRODUCT ANALYSIS QUERIES
+-- ============================================================================
+
+-- 1. TOP 20 PRODUCTS BY REVENUE
+-- Best performing products in terms of sales
+SELECT 
+    ITEM_SKU,
+    PRODUCT_NAME,
+    PRODUCT_TYPE,
+    PRODUCT_PRICE,
+    TOTAL_ITEMS_SOLD,
+    PRODUCT_REVENUE,
+    AVG_REVENUE_PER_UNIT,
+    ORDERS_CONTAINING_PRODUCT,
+    REVENUE_RANK,
+    POPULARITY_RANK,
+    PRODUCT_PERFORMANCE_TIER,
+    PRODUCT_POPULARITY_TIER,
+    ROUND(AVG_REVENUE_PER_ORDER, 2) as AVG_REVENUE_PER_ORDER
+FROM {{ ref('mart_products') }}
+WHERE ITEM_SKU IS NOT NULL
+ORDER BY REVENUE_RANK ASC
+LIMIT 20;
+
+-- ============================================================================
+
+-- 2. PRODUCT PERFORMANCE MATRIX
+-- Segment products by revenue and popularity
+SELECT 
+    PRODUCT_PERFORMANCE_TIER,
+    PRODUCT_POPULARITY_TIER,
+    COUNT(DISTINCT ITEM_SKU) as PRODUCT_COUNT,
+    SUM(TOTAL_ITEMS_SOLD) as TOTAL_UNITS,
+    SUM(PRODUCT_REVENUE) as TIER_REVENUE,
+    ROUND(AVG(PRODUCT_REVENUE), 2) as AVG_PRODUCT_REVENUE,
+    ROUND(AVG(AVG_REVENUE_PER_UNIT), 2) as AVG_UNIT_REVENUE,
+    ROUND(AVG(ORDERS_CONTAINING_PRODUCT), 2) as AVG_ORDERS_PER_PRODUCT
+FROM {{ ref('mart_products') }}
+WHERE ITEM_SKU IS NOT NULL
+GROUP BY PRODUCT_PERFORMANCE_TIER, PRODUCT_POPULARITY_TIER
+ORDER BY TIER_REVENUE DESC;
+
+-- ============================================================================
+
+-- 3. BOTTOM PERFORMERS (LOW SALES)
+-- Products with potential for discontinuation or marketing boost
+SELECT 
+    ITEM_SKU,
+    PRODUCT_NAME,
+    PRODUCT_TYPE,
+    PRODUCT_PRICE,
+    TOTAL_ITEMS_SOLD,
+    PRODUCT_REVENUE,
+    ORDERS_CONTAINING_PRODUCT,
+    REVENUE_RANK,
+    POPULARITY_RANK,
+    PRODUCT_PERFORMANCE_TIER
+FROM {{ ref('mart_products') }}
+WHERE ITEM_SKU IS NOT NULL
+  AND PRODUCT_PERFORMANCE_TIER IN ('Average Performer', 'Low Performer')
+ORDER BY PRODUCT_REVENUE ASC
+LIMIT 20;
+
+-- ============================================================================
+
+-- 4. PRODUCT TYPE ANALYSIS
+-- Revenue and unit sales by product category
+SELECT 
+    PRODUCT_TYPE,
+    COUNT(DISTINCT ITEM_SKU) as UNIQUE_PRODUCTS,
+    SUM(TOTAL_ITEMS_SOLD) as TOTAL_UNITS_SOLD,
+    SUM(PRODUCT_REVENUE) as CATEGORY_REVENUE,
+    ROUND(AVG(PRODUCT_REVENUE), 2) as AVG_PRODUCT_REVENUE,
+    ROUND(AVG(AVG_REVENUE_PER_UNIT), 2) as AVG_UNIT_PRICE,
+    ROUND(SUM(PRODUCT_REVENUE) / NULLIF(SUM(TOTAL_ITEMS_SOLD), 0), 2) as BLENDED_UNIT_PRICE,
+    ROUND(100.0 * SUM(PRODUCT_REVENUE) / SUM(SUM(PRODUCT_REVENUE)) OVER (), 2) as PERCENT_OF_TOTAL_REVENUE,
+    MIN(PRODUCT_PRICE) as MIN_PRICE,
+    MAX(PRODUCT_PRICE) as MAX_PRICE
+FROM {{ ref('mart_products') }}
+WHERE ITEM_SKU IS NOT NULL
+GROUP BY PRODUCT_TYPE
+ORDER BY CATEGORY_REVENUE DESC;
+
+-- ============================================================================
+
+-- 5. PRODUCT CROSS-SELL ANALYSIS
+-- Products frequently bought together
+SELECT 
+    oi1.ITEM_SKU as PRODUCT_A_SKU,
+    oi1.PRODUCT_NAME as PRODUCT_A_NAME,
+    oi2.ITEM_SKU as PRODUCT_B_SKU,
+    oi2.PRODUCT_NAME as PRODUCT_B_NAME,
+    COUNT(DISTINCT oi1.ORDER_ID) as ORDERS_TOGETHER,
+    ROUND(100.0 * COUNT(DISTINCT oi1.ORDER_ID) / 
+        (SELECT COUNT(DISTINCT ORDER_ID) FROM {{ ref('int_orders_items_joined') }} WHERE ITEM_SKU = oi1.ITEM_SKU), 2) as AFFINITY_PERCENT
+FROM {{ ref('int_orders_items_joined') }} oi1
+INNER JOIN {{ ref('int_orders_items_joined') }} oi2
+    ON oi1.ORDER_ID = oi2.ORDER_ID
+    AND oi1.ITEM_SKU < oi2.ITEM_SKU
+GROUP BY oi1.ITEM_SKU, oi1.PRODUCT_NAME, oi2.ITEM_SKU, oi2.PRODUCT_NAME
+ORDER BY ORDERS_TOGETHER DESC
+LIMIT 30;
+
+-- ============================================================================
+
+-- 6. PRICE SENSITIVITY ANALYSIS
+-- How products with different prices perform
+SELECT 
+    CASE 
+        WHEN PRODUCT_PRICE < 25 THEN 'Budget ($0-25)'
+        WHEN PRODUCT_PRICE < 50 THEN 'Mid-Range ($25-50)'
+        WHEN PRODUCT_PRICE < 100 THEN 'Premium ($50-100)'
+        ELSE 'Luxury ($100+)'
+    END as PRICE_RANGE,
+    COUNT(DISTINCT ITEM_SKU) as PRODUCT_COUNT,
+    SUM(TOTAL_ITEMS_SOLD) as TOTAL_UNITS,
+    SUM(PRODUCT_REVENUE) as RANGE_REVENUE,
+    ROUND(AVG(PRODUCT_REVENUE), 2) as AVG_PRODUCT_REVENUE,
+    ROUND(AVG(TOTAL_ITEMS_SOLD), 2) as AVG_UNITS_PER_PRODUCT,
+    ROUND(SUM(PRODUCT_REVENUE) / NULLIF(SUM(TOTAL_ITEMS_SOLD), 0), 2) as BLENDED_UNIT_PRICE,
+    ROUND(100.0 * SUM(PRODUCT_REVENUE) / SUM(SUM(PRODUCT_REVENUE)) OVER (), 2) as PERCENT_OF_REVENUE
+FROM {{ ref('mart_products') }}
+WHERE ITEM_SKU IS NOT NULL
+GROUP BY PRICE_RANGE
+ORDER BY AVG_UNITS_PER_PRODUCT DESC;
+
+-- ============================================================================
+
+-- 7. PRODUCT INVENTORY PRIORITY
+-- Which products to keep stocked based on performance
+SELECT 
+    ITEM_SKU,
+    PRODUCT_NAME,
+    PRODUCT_TYPE,
+    REVENUE_RANK,
+    POPULARITY_RANK,
+    TOTAL_ITEMS_SOLD,
+    PRODUCT_REVENUE,
+    ORDERS_CONTAINING_PRODUCT,
+    CASE 
+        WHEN REVENUE_RANK <= 10 THEN 'CRITICAL (Top 10 Revenue)'
+        WHEN POPULARITY_RANK <= 20 THEN 'HIGH (Top 20 Popular)'
+        WHEN TOTAL_ITEMS_SOLD >= 50 THEN 'MEDIUM (Volume Driver)'
+        ELSE 'LOW (Consider Discount/EOL)'
+    END as INVENTORY_PRIORITY,
+    ROUND((TOTAL_ITEMS_SOLD / SUM(TOTAL_ITEMS_SOLD) OVER ()) * 100, 3) as PERCENT_OF_UNITS
+FROM {{ ref('mart_products') }}
+WHERE ITEM_SKU IS NOT NULL
+ORDER BY INVENTORY_PRIORITY, REVENUE_RANK ASC;
