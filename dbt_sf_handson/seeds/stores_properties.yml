@@ -1,0 +1,29 @@
+version: 2
+seeds:
+  - name: stores
+    config:
+      description: "This seed contains store information including store ID, name, opened date, and tax rate."
+      enabled: true 
+      tags: ['seeds','stores']
+      meta: {"owner": "data_team", "priority": "high"}
+      delimiter: ","
+      quote_columns: false
+      # header: true
+      database: "JAFFELSHOP_ECOM"
+      schema: "seeds"
+      alias: "seed_stores"
+      # full_refresh: false
+      # columns:
+      #   - name: id
+      #     description: "Unique identifier for each store."
+      #     tests:
+      #       - not_null
+      #       - unique
+      #   - name: name
+      #     description: "Name of the store."
+      #   - name: opened_at
+      #     description: "Location where the store was opened."
+      #   - name: tax_rate
+      #     description: "Applicable tax rate for the store."
+      # post_hook: ""
+      
