@@ -5,11 +5,29 @@
 -- Business Logic: Complete product performance view with rankings and KPIs
 -- Key Metrics: Sales, revenue, popularity, performance rankings
 
+WITH product_metrics AS (
+    SELECT  
+        ITEM_SKU,
+        PRODUCT_NAME,
+        PRODUCT_TYPE,
+        ORDERS_CONTAINING_PRODUCT,
+        TOTAL_ITEMS_SOLD,
+        PRODUCT_REVENUE,
+        AVG_SELLING_PRICE,
+        MIN_SELLING_PRICE,
+        MAX_SELLING_PRICE,
+        AVG_REVENUE_PER_UNIT,
+        REVENUE_RANK,
+        POPULARITY_RANK,
+        CALCULATED_AT
+    FROM {{ ref('int_product_performance') }}
+    WHERE ITEM_SKU IS NOT NULL
+)
+
 SELECT  
     ITEM_SKU,
     PRODUCT_NAME,
     PRODUCT_TYPE,
-    PRODUCT_PRICE,
     ORDERS_CONTAINING_PRODUCT,
     TOTAL_ITEMS_SOLD,
     PRODUCT_REVENUE,
@@ -33,12 +51,5 @@ SELECT
         ELSE 'Niche'
     END as PRODUCT_POPULARITY_TIER,
     ROUND(PRODUCT_REVENUE / NULLIF(ORDERS_CONTAINING_PRODUCT, 0), 2) as AVG_REVENUE_PER_ORDER,
-    CASE 
-        WHEN (AVG_SELLING_PRICE > 0) 
-            THEN ROUND(((AVG_SELLING_PRICE - PRODUCT_PRICE) / PRODUCT_PRICE) * 100, 2)
-        ELSE 0
-    END as PRICE_VARIANCE_PERCENT,
     CALCULATED_AT as LAST_CALCULATED
-FROM {{ ref('int_product_performance') }}
-WHERE ITEM_SKU IS NOT NULL
-ORDER BY REVENUE_RANK ASC
+FROM product_metrics
