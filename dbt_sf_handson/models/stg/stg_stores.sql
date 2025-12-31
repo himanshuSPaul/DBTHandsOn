@@ -1,0 +1,10 @@
+WITH SEED_STORES AS (
+    SELECT * FROM {{ref('stores')}} 
+)
+
+SELECT  ID          AS STORE_ID,
+        NAME        AS STORE_NAME, 
+        OPENED_AT   AS STORE_OPENED_AT, 
+        TAX_RATE    AS STORE_TAX_RATE
+FROM SEED_STORES
+WHERE ID IS NOT NULL
