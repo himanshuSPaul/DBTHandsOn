@@ -1,0 +1,75 @@
+{{ config(materialized='table') }}
+
+-- MART LAYER: mart_stores
+-- Purpose: Store performance analytics and store master data
+-- Business Logic: Aggregate store metrics from orders with store reference data
+-- Key Metrics: Revenue by store, order count, avg order value, customer reach, tax rates
+
+WITH STORE_REF AS (
+    SELECT * FROM {{ ref('stg_stores') }}
+),
+ORDER_FACTS AS (
+    SELECT * FROM {{ ref('mart_orders') }}
+),
+STORE_METRICS AS (
+    SELECT  
+        sr.STORE_ID,
+        sr.STORE_NAME,
+        sr.STORE_OPENED_AT,
+        sr.STORE_TAX_RATE,
+        DATEDIFF(DAY, CAST(sr.STORE_OPENED_AT AS DATE), CURRENT_DATE()) as DAYS_IN_OPERATION,
+        COUNT(DISTINCT ord.ORDER_ID) as TOTAL_ORDERS,
+        COUNT(DISTINCT ord.ORDER_CUSTOMER) as UNIQUE_CUSTOMERS,
+        SUM(ord.ORDER_TOTAL) as TOTAL_REVENUE,
+        ROUND(AVG(ord.ORDER_TOTAL), 2) as AVG_ORDER_VALUE,
+        MIN(ord.ORDER_TOTAL) as MIN_ORDER_VALUE,
+        MAX(ord.ORDER_TOTAL) as MAX_ORDER_VALUE,
+        ROUND(SUM(ord.ORDER_SUBTOTAL), 2) as TOTAL_SUBTOTAL,
+        ROUND(SUM(ord.ORDER_TAX_PAID), 2) as TOTAL_TAX_COLLECTED,
+        ROUND(SUM(ord.ORDER_TOTAL) / NULLIF(COUNT(DISTINCT ord.ORDER_ID), 0), 2) as AVG_TRANSACTION_VALUE,
+        ROUND(SUM(ord.ITEMS_IN_ORDER) / NULLIF(COUNT(DISTINCT ord.ORDER_ID), 0), 2) as AVG_ITEMS_PER_ORDER,
+        MIN(ord.ORDER_DATE) as FIRST_ORDER_DATE,
+        MAX(ord.ORDER_DATE) as LAST_ORDER_DATE,
+        COUNT(CASE WHEN ord.ORDER_VALUE_SEGMENT = 'High Value' THEN 1 END) as HIGH_VALUE_ORDERS,
+        COUNT(CASE WHEN ord.ORDER_VALUE_SEGMENT = 'Medium Value' THEN 1 END) as MEDIUM_VALUE_ORDERS,
+        COUNT(CASE WHEN ord.ORDER_VALUE_SEGMENT = 'Low Value' THEN 1 END) as LOW_VALUE_ORDERS
+    FROM STORE_REF sr
+    LEFT JOIN ORDER_FACTS ord ON sr.STORE_ID = ord.ORDER_STORE_ID
+    GROUP BY sr.STORE_ID, sr.STORE_NAME, sr.STORE_OPENED_AT, sr.STORE_TAX_RATE
+)
+
+SELECT  
+    STORE_ID,
+    STORE_NAME,
+    STORE_OPENED_AT,
+    STORE_TAX_RATE,
+    DAYS_IN_OPERATION,
+    TOTAL_ORDERS,
+    UNIQUE_CUSTOMERS,
+    TOTAL_REVENUE,
+    AVG_ORDER_VALUE,
+    MIN_ORDER_VALUE,
+    MAX_ORDER_VALUE,
+    TOTAL_SUBTOTAL,
+    TOTAL_TAX_COLLECTED,
+    AVG_TRANSACTION_VALUE,
+    AVG_ITEMS_PER_ORDER,
+    FIRST_ORDER_DATE,
+    LAST_ORDER_DATE,
+    HIGH_VALUE_ORDERS,
+    MEDIUM_VALUE_ORDERS,
+    LOW_VALUE_ORDERS,
+    CASE 
+        WHEN TOTAL_REVENUE > 50000 THEN 'High Revenue Store'
+        WHEN TOTAL_REVENUE > 20000 THEN 'Mid Revenue Store'
+        ELSE 'Emerging Store'
+    END as STORE_PERFORMANCE_TIER,
+    CASE 
+        WHEN UNIQUE_CUSTOMERS > 500 THEN 'Large Customer Base'
+        WHEN UNIQUE_CUSTOMERS > 200 THEN 'Medium Customer Base'
+        ELSE 'Small Customer Base'
+    END as STORE_CUSTOMER_TIER,
+    ROUND(TOTAL_REVENUE / NULLIF(DAYS_IN_OPERATION, 0), 2) as AVG_DAILY_REVENUE,
+    CURRENT_TIMESTAMP() as GENERATED_AT
+FROM STORE_METRICS
+ORDER BY TOTAL_REVENUE DESC

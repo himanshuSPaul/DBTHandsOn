@@ -1,0 +1,88 @@
+{{ config(materialized='table') }}
+
+-- MART LAYER: mart_orders_by_customer
+-- Purpose: Customer-centric order analytics combining customer, order, and store dimensions
+-- Business Logic: Join customer segments with order and store details for comprehensive reporting
+-- Key Insights: Buying patterns, customer value, order timing, product preferences, store loyalty
+
+WITH CUSTOMER_DIM AS (
+    SELECT * FROM {{ ref('mart_customers') }}
+),
+ORDER_FACTS AS (
+    SELECT * FROM {{ ref('mart_orders') }}
+),
+STORE_REF AS (
+    SELECT * FROM {{ ref('stg_stores') }}
+),
+CUSTOMER_ORDER_METRICS AS (
+    SELECT  
+        c.CUSTOMER_ID,
+        c.CUSTOMER_NAME,
+        c.FIRST_NAME,
+        c.LAST_NAME,
+        c.CUSTOMER_STATUS,
+        c.CUSTOMER_SEGMENT,
+        c.CUSTOMER_LIFETIME_VALUE,
+        c.AVG_ORDER_VALUE,
+        c.CUSTOMER_TENURE_DAYS,
+        c.RECENCY_DAYS,
+        o.ORDER_ID,
+        o.ORDER_DATE,
+        o.ORDERED_AT,
+        o.ORDER_STORE_ID,
+        o.STORE_NAME,
+        o.STORE_TAX_RATE,
+        o.ORDER_SUBTOTAL,
+        o.ORDER_TAX_PAID,
+        o.ORDER_TOTAL,
+        o.ITEMS_IN_ORDER,
+        o.UNIQUE_PRODUCTS,
+        o.ORDER_VALUE_SEGMENT,
+        o.ORDER_TYPE,
+        RANK() OVER (PARTITION BY c.CUSTOMER_ID ORDER BY o.ORDERED_AT DESC) as RECENCY_RANK,
+        RANK() OVER (PARTITION BY c.CUSTOMER_ID ORDER BY o.ORDER_TOTAL DESC) as ORDER_VALUE_RANK,
+        RANK() OVER (PARTITION BY c.CUSTOMER_ID ORDER BY o.ORDERED_AT) as PURCHASE_SEQUENCE,
+        DATEDIFF(DAY, LAG(o.ORDER_DATE) OVER (PARTITION BY c.CUSTOMER_ID ORDER BY o.ORDER_DATE), o.ORDER_DATE) as DAYS_SINCE_PREV_ORDER
+    FROM CUSTOMER_DIM c
+    LEFT JOIN ORDER_FACTS o ON c.CUSTOMER_ID = o.ORDER_CUSTOMER
+)
+
+SELECT  
+    CUSTOMER_ID,
+    CUSTOMER_NAME,
+    FIRST_NAME,
+    LAST_NAME,
+    CUSTOMER_STATUS,
+    CUSTOMER_SEGMENT,
+    CUSTOMER_LIFETIME_VALUE,
+    AVG_ORDER_VALUE,
+    CUSTOMER_TENURE_DAYS,
+    RECENCY_DAYS,
+    ORDER_ID,
+    ORDER_DATE,
+    ORDERED_AT,
+    ORDER_STORE_ID,
+    STORE_NAME,
+    STORE_TAX_RATE,
+    ORDER_SUBTOTAL,
+    ORDER_TAX_PAID,
+    ORDER_TOTAL,
+    ITEMS_IN_ORDER,
+    UNIQUE_PRODUCTS,
+    ORDER_VALUE_SEGMENT,
+    ORDER_TYPE,
+    RECENCY_RANK,
+    ORDER_VALUE_RANK,
+    PURCHASE_SEQUENCE,
+    DAYS_SINCE_PREV_ORDER,
+    CASE 
+        WHEN RECENCY_RANK = 1 THEN 'Most Recent'
+        WHEN RECENCY_RANK <= 5 THEN 'Recent Buyer'
+        ELSE 'Past Buyer'
+    END as PURCHASE_RECENCY_SEGMENT,
+    COUNT(CASE WHEN ORDER_ID IS NOT NULL THEN 1 END) OVER (PARTITION BY CUSTOMER_ID) as CUSTOMER_ORDER_COUNT,
+    COUNT(DISTINCT STORE_NAME) OVER (PARTITION BY CUSTOMER_ID) as STORES_VISITED,
+    CURRENT_TIMESTAMP() as GENERATED_AT
+FROM CUSTOMER_ORDER_METRICS
+WHERE CUSTOMER_ID IS NOT NULL
+ORDER BY CUSTOMER_ID, ORDERED_AT DESC
