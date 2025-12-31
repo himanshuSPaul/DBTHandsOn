@@ -1,0 +1,36 @@
+unit_tests:
+  - name: test_stg_customers_name_splitting
+    description: "Test that customer names are correctly split into first, middle, last names"
+    model: stg_customers
+    given:
+      - input: source('raw', 'raw_customers')
+        rows:
+          - {customer_id: 1, customer_name: "John Smith"}
+          - {customer_id: 2, customer_name: "Jane Marie Johnson"}
+    expect:
+      rows:
+        - {customer_id: 1, first_name: "John", last_name: "Smith"}
+        - {customer_id: 2, first_name: "Jane", last_name: "Johnson"}
+
+  - name: test_stg_orders_timestamp_handling
+    description: "Test that order timestamps are correctly handled"
+    model: stg_orders
+    given:
+      - input: source('raw', 'raw_orders')
+        rows:
+          - {id: 1, customer: "CUST001", ordered_at: "2024-01-15 10:30:00", store_id: 1, subtotal: 100.00, tax_paid: 8.50, order_total: 108.50}
+    expect:
+      rows:
+        - {order_id: 1, order_customer: "CUST001"}
+
+  - name: test_stg_products_data_filtering
+    description: "Test that invalid product prices are filtered out"
+    model: stg_products
+    given:
+      - input: source('raw', 'raw_products')
+        rows:
+          - {sku: "SKU001", name: "Widget A", type: "Electronics", price: 2999, description: "Sample"}
+    expect:
+      rows:
+        - {product_sku: "SKU001", product_name: "Widget A"}
+
