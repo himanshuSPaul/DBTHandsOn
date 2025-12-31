@@ -1,0 +1,28 @@
+{{ config(materialized='view') }}
+
+-- INTERMEDIATE LAYER: int_product_performance
+-- Purpose: Calculate product-level metrics for analysis and reporting
+-- Business Logic: Aggregate sales, revenue, and popularity metrics by product
+
+WITH ORDER_ITEMS AS (
+    SELECT * FROM {{ ref('int_orders_items_joined') }}
+)
+
+SELECT  
+    ITEM_SKU,
+    PRODUCT_NAME,
+    PRODUCT_TYPE,
+    PRODUCT_PRICE,
+    COUNT(DISTINCT ORDER_ID) as ORDERS_CONTAINING_PRODUCT,
+    COUNT(ITEM_ID) as TOTAL_ITEMS_SOLD,
+    SUM(ITEM_AMOUNT) as PRODUCT_REVENUE,
+    AVG(ITEM_PRICE) as AVG_SELLING_PRICE,
+    MIN(ITEM_PRICE) as MIN_SELLING_PRICE,
+    MAX(ITEM_PRICE) as MAX_SELLING_PRICE,
+    ROUND((SUM(ITEM_AMOUNT) / NULLIF(COUNT(ITEM_ID), 0)), 2) as AVG_REVENUE_PER_UNIT,
+    RANK() OVER (ORDER BY SUM(ITEM_AMOUNT) DESC) as REVENUE_RANK,
+    RANK() OVER (ORDER BY COUNT(ITEM_ID) DESC) as POPULARITY_RANK,
+    CURRENT_TIMESTAMP() as CALCULATED_AT
+FROM ORDER_ITEMS
+WHERE ITEM_SKU IS NOT NULL
+GROUP BY ITEM_SKU, PRODUCT_NAME, PRODUCT_TYPE, PRODUCT_PRICE
